@@ -40,6 +40,7 @@
 #include "ddramc.h"
 #include "slowclk.h"
 #include "timer.h"
+#include "twi.h"
 #include "watchdog.h"
 #include "string.h"
 #include "at91sam9x5_aria.h"
@@ -167,6 +168,37 @@ static void one_wire_hw_init(void)
 	pio_configure(wire_pio);
 }
 
+
+#ifdef CONFIG_TWI
+
+#define TWI_CLOCK   400000
+
+static void at91_twi0_hw_init(void)
+{
+    const struct pio_desc twi0_pins[] = {
+        {"TWD0", AT91C_PIN_PA(30), 0, PIO_DEFAULT, PIO_PERIPH_A},
+        {"TWCK0", AT91C_PIN_PA(31), 0, PIO_DEFAULT, PIO_PERIPH_A},
+        {(char *)0, 0, 0, PIO_DEFAULT, PIO_PERIPH_A},
+    };
+
+    pio_configure(twi0_pins);
+    pmc_enable_periph_clock(AT91C_ID_PIOA_B);
+
+    pmc_enable_periph_clock(AT91C_ID_TWI0);
+}
+
+static void twi0_init(void)
+{
+    unsigned int bus_clock = MASTER_CLOCK / 2;
+
+    at91_twi_base = AT91C_BASE_TWI0;
+
+    at91_twi0_hw_init();
+
+    twi_configure_master_mode(bus_clock, TWI_CLOCK);
+}
+#endif /* #ifdef CONFIG_TWI */
+
 #ifdef CONFIG_HW_INIT
 void hw_init(void)
 {
@@ -205,9 +237,14 @@ void hw_init(void)
 	/* Initialize DDRAM Controller */
 	ddramc_init();
 #endif
+    
 	/* one wire pin init */
 	one_wire_hw_init();
 
+#ifdef CONFIG_TWI
+    twi0_init();
+#endif
+    
 #ifdef CONFIG_USER_HW_INIT
 	hw_init_hook();
 #endif
